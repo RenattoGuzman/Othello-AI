@@ -5,7 +5,7 @@ import time
 
 ### Public IP Server
 ### Testing Server
-host_name = 'http://localhost:8000'
+host_name = 'http://ec2-3-142-147-237.us-east-2.compute.amazonaws.com:8000'
 
 class OthelloPlayer():
 
