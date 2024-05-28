@@ -5,7 +5,7 @@ import time
 
 ### Public IP Server
 ### Testing Server
-host_name = 'http://ec2-3-142-147-237.us-east-2.compute.amazonaws.com:8000'
+host_name = 'http://ec2-3-144-219-136.us-east-2.compute.amazonaws.com:8000'
 
 class OthelloPlayer():
 
@@ -14,6 +14,16 @@ class OthelloPlayer():
         self.username = username
         ### Player symbol in a match
         self.current_symbol = 0
+        self.static_weight_board = [
+            [100, -30, 6, 2, 2, 6, -30, 100],
+            [-30, -50, 0, 0, 0, 0, -50, -30],
+            [6, 0, 0, 0, 0, 0, 0, 6],
+            [2, 0, 0, 3, 3, 0, 0, 2],
+            [2, 0, 0, 3, 3, 0, 0, 2],
+            [6, 0, 0, 0, 0, 0, 0, 6],
+            [-30, -50, 0, 0, 0, 0, -50, -30],
+            [100, -30, 6, 2, 2, 6, -30, 100]
+        ]
 
 
     def connect(self, session_name) -> bool:
@@ -26,6 +36,16 @@ class OthelloPlayer():
         self.session_name = session_name
         print(new_player['message'])
         return new_player['status'] == 200
+
+    def print_board(self, board):
+        symbols = {1: 'W', -1: 'B', 0: '.'}
+        print('  0 1 2 3 4 5 6 7')
+        cont = 0
+        for row in board:
+            pr = ' '.join([symbols[cell] for cell in row])
+            print(f'{cont} {pr}')
+            cont += 1
+        print()
 
     def play(self) -> bool:
         """
@@ -90,9 +110,74 @@ class OthelloPlayer():
 
     ### Solo modiquen esta función
     def AI_MOVE(self, board):
-        row = random.randint(0, 7)
-        col = random.randint(0, 7)
-        return (row, col)
+        
+        self.print_board(board)
+        
+        valid_moves = get_valid_moves(board, self.current_symbol)
+        my_color = self.current_symbol # 1 is white, -1 is black
+        
+        print(f"==>> valid_moves: \n{valid_moves}")
+
+        if valid_moves:
+            # Find the move with the highest static weight
+            best_move = max(valid_moves, key=lambda move: self.static_weight_board[move[0]][move[1]])
+            return best_move
+        else:
+            return None
+
+
+def get_valid_moves(board, player):
+    valid_moves = []
+    for row in range(8):
+        for col in range(8):
+            if is_valid_move(board, player, row, col):
+                valid_moves.append((row, col))
+
+    return valid_moves
+
+def is_valid_move(board, player, row, col):
+    directions = [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1)]
+
+    if board[row][col] != 0:
+        return False
+
+    opponent = -player
+
+    for direction in directions:
+        dr, dc = direction
+        r, c = row + dr, col + dc
+        found_opponent = False
+
+        while 0 <= r < 8 and 0 <= c < 8 and board[r][c] == opponent:
+            r += dr
+            c += dc
+            found_opponent = True
+
+        if found_opponent and 0 <= r < 8 and 0 <= c < 8 and board[r][c] == player:
+            return True
+
+    return False
+
+
+def any_direction_valid(board, row, col, symbol):
+    directions = [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1)]
+    return any(check_direction(board, row, col, dx, dy, symbol) for dx, dy in directions)
+
+def check_direction(board, row, col, dx, dy, symbol):
+    x, y = row + dx, col + dy
+    if not (0 <= x < 8 and 0 <= y < 8) or board[x][y] != -symbol:
+        return False
+    x += dx
+    y += dy
+    while 0 <= x < 8 and 0 <= y < 8:
+        if board[x][y] == symbol:
+            return True
+        if board[x][y] == 0:
+            return False
+        x += dx
+        y += dy
+    return False
+
 
 if __name__ == '__main__':
     script_name = sys.argv[0]

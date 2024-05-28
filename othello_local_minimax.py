@@ -1,5 +1,6 @@
 
 import csv
+import math
 import random
 import time
 
@@ -25,16 +26,82 @@ class OthelloPlayer():
         
     def MY_AI_MOVE(self, board):
         valid_moves = get_valid_moves(board, self.current_symbol)
-        my_color = self.current_symbol # 1 is white, -1 is black
         
-        print(f"==>> valid_moves: \n{valid_moves}")
-
-        if valid_moves:
-            # Find the move with the highest static weight
-            best_move = max(valid_moves, key=lambda move: self.static_weight_board[move[0]][move[1]])
-            return best_move
-        else:
+        if not valid_moves:
             return None
+
+        def minimax(board, depth, alpha, beta, maximizing_player):
+            if depth == 0 or not get_valid_moves(board, self.current_symbol):
+                return self.evaluate_board(board)
+
+            if maximizing_player:
+                max_eval = -math.inf
+                for move in get_valid_moves(board, self.current_symbol):
+                    new_board = self.make_hypothetical_move(board, move, self.current_symbol)
+                    eval = minimax(new_board, depth - 1, alpha, beta, False)
+                    max_eval = max(max_eval, eval)
+                    alpha = max(alpha, eval)
+                    if beta <= alpha:
+                        break
+                return max_eval
+            else:
+                min_eval = math.inf
+                opponent_symbol = -self.current_symbol
+                for move in get_valid_moves(board, opponent_symbol):
+                    new_board = self.make_hypothetical_move(board, move, opponent_symbol)
+                    eval = minimax(new_board, depth - 1, alpha, beta, True)
+                    min_eval = min(min_eval, eval)
+                    beta = min(beta, eval)
+                    if beta <= alpha:
+                        break
+                return min_eval
+
+        best_move = None
+        best_value = -math.inf
+        for move in valid_moves:
+            new_board = self.make_hypothetical_move(board, move, self.current_symbol)
+            move_value = minimax(new_board, 4, -math.inf, math.inf, False)  # Depth of 3 for example
+            if move_value > best_value:
+                best_value = move_value
+                best_move = move
+                
+        
+        return best_move
+
+    def make_hypothetical_move(self, board, move, symbol):
+        new_board = [row[:] for row in board]
+        self.make_move(new_board, move[0], move[1], symbol)
+        return new_board
+
+    def make_move(self, board, row, col, symbol):
+        directions = [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1)]
+        board[row][col] = symbol
+        for dx, dy in directions:
+            if self.check_direction(board, row, col, dx, dy, symbol):
+                x, y = row + dx, col + dy
+                while board[x][y] == -symbol:
+                    board[x][y] = symbol
+                    x += dx
+                    y += dy
+
+    def check_direction(self, board, row, col, dx, dy, symbol):
+        x, y = row + dx, col + dy
+        if not (0 <= x < 8 and 0 <= y < 8) or board[x][y] != -symbol:
+            return False
+        x += dx
+        y += dy
+        while 0 <= x < 8 and 0 <= y < 8:
+            if board[x][y] == symbol:
+                return True
+            if board[x][y] == 0:
+                return False
+            x += dx
+            y += dy
+        return False
+
+    def evaluate_board(self, board):
+        return sum(self.static_weight_board[row][col] * board[row][col]
+                   for row in range(8) for col in range(8))
 
 
 
@@ -56,6 +123,7 @@ class OthelloGame():
         self.current_player = 1
         self.players = []
         self.winner = 0
+        self.passing_moves = 0
 
     def add_player(self, player):
         self.players.append(player)
@@ -79,6 +147,7 @@ class OthelloGame():
             valid_moves = get_valid_moves(self.board, player.current_symbol)
             if not valid_moves:
                 print("No valid moves available. Passing turn.")
+                self.passing_moves += 1
                 self.current_player *= -1
                 continue
 
@@ -221,7 +290,7 @@ def check_direction(board, row, col, dx, dy, symbol):
 
 
 if __name__ == '__main__':
-    num_games = 1
+    num_games = 15
     results = []
 
     for _ in range(num_games):
@@ -237,6 +306,10 @@ if __name__ == '__main__':
         game.add_player(player2)
 
         game.play()
+        
+        if game.passing_moves > 5:
+            pass
+        
         winner = game.winner
         print(f"==>> winner: \n{winner}")
         win = True if winner == color1 else False
@@ -248,4 +321,4 @@ if __name__ == '__main__':
     print(f"==>> df: \n{df}")
 
     # Save the DataFrame to a CSV file
-    #df.to_csv('static_weight2.csv', index=False)
+    df.to_csv('minimax.csv', index=False)
